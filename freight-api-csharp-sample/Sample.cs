@@ -32,7 +32,7 @@ namespace freight_api_csharp_sample
             
             NewOrder();
             NewOrders();
-
+            
             Order();
             PendingOrders();
 
@@ -43,6 +43,8 @@ namespace freight_api_csharp_sample
             SelectiveCreateAndPrint();
 
             CreateAndPrint();
+
+            PublishManifest();
         }
 
         private List<string> PendingOrders()
@@ -366,12 +368,11 @@ namespace freight_api_csharp_sample
                     Type = "Box"
                 }
                 }),
-                PrintToPrinter = "DAMON-HP >> ZDESIGNER GC420D (EPL) (123)",
-
+                PrintToPrinter = "false",
                 Commodities = new List<object>(new[] { 
                     new { Description = "Apparel", UnitKg = 0.33M, UnitValue = 1, Units = 1, Country = "NZ", Currency = "NZD" }
                 }),
-                Outputs = new List<object>(new string[] { "LABEL_PDF", "LABEL_PNG" })
+                Outputs = new List<object>(new string[] { "LABEL_PDF", "LABEL_PNG" })                
             };
 
 
@@ -397,19 +398,22 @@ namespace freight_api_csharp_sample
 
                     foreach (var item in lines.Consignments)
                     {
-                        foreach (var ot in item.OutputFiles)
+                        if (item.OutputFiles != null)
                         {
-                            foreach (var att in ot.Value)
+                            foreach (var ot in item.OutputFiles)
                             {
-                                string file = "";
-                                if (ot.Key.Contains("PNG"))
-                                    file = GetTempFolder() + "\\" + Guid.NewGuid() + ".png";
-                                else
-                                    file = GetTempFolder() + "\\" + Guid.NewGuid() + ".pdf";
+                                foreach (var att in ot.Value)
+                                {
+                                    string file = "";
+                                    if (ot.Key.Contains("PNG"))
+                                        file = GetTempFolder() + "\\" + Guid.NewGuid() + ".png";
+                                    else
+                                        file = GetTempFolder() + "\\" + Guid.NewGuid() + ".pdf";
 
-                                System.IO.File.WriteAllBytes(file, att);
+                                    System.IO.File.WriteAllBytes(file, att);
 
-                                System.Diagnostics.Process.Start(file);
+                                    System.Diagnostics.Process.Start(file);
+                                }
                             }
                         }
                     }
@@ -443,10 +447,10 @@ namespace freight_api_csharp_sample
                     {
                         BuildingName = "",
                         StreetAddress = "DestinationStreetAddress",
-                        Suburb = "Avonside",
-                        City = "Christchurch",
-                        PostCode = "8061",
-                        CountryCode = "NZ",
+                        Suburb = "Mascot",
+                        City = "NSW",
+                        PostCode = "2020",
+                        CountryCode = "AU",
                     },
                     ContactPerson = "DestinationContact",
                     PhoneNumber = "123456789",
@@ -544,8 +548,8 @@ namespace freight_api_csharp_sample
                     PrintToPrinter = true,
                     Commodities = new List<object>(new[] { 
                     new { Description = "Apparel", UnitKg = 0.33M, UnitValue = 1, Units = 1, Country = "NZ", Currency = "NZD" }
-                }),
-                    Outputs = new List<object>(new string[] { "LABEL_PDF", "LABEL_PNG" }),
+                })
+                , Outputs = new List<object>(new string[] { "LABEL_PDF", "LABEL_PNG" }),
                 };
 
 
@@ -571,19 +575,22 @@ namespace freight_api_csharp_sample
 
                         foreach (var item in lines2.Consignments)
                         {
-                            foreach (var ot in item.OutputFiles)
+                            if (item.OutputFiles != null)
                             {
-                                foreach (var att in ot.Value)
+                                foreach (var ot in item.OutputFiles)
                                 {
-                                    string file = "";
-                                    if (ot.Key.Contains("PNG"))
-                                        file = GetTempFolder() + "\\" + Guid.NewGuid() + ".png";
-                                    else
-                                        file = GetTempFolder() + "\\" + Guid.NewGuid() + ".pdf";
+                                    foreach (var att in ot.Value)
+                                    {
+                                        string file = "";
+                                        if (ot.Key.Contains("PNG"))
+                                            file = GetTempFolder() + "\\" + Guid.NewGuid() + ".png";
+                                        else
+                                            file = GetTempFolder() + "\\" + Guid.NewGuid() + ".pdf";
 
-                                    System.IO.File.WriteAllBytes(file, att);
+                                        System.IO.File.WriteAllBytes(file, att);
 
-                                    System.Diagnostics.Process.Start(file);
+                                        System.Diagnostics.Process.Start(file);
+                                    }
                                 }
                             }
                         }
@@ -606,6 +613,47 @@ namespace freight_api_csharp_sample
             return Environment.GetFolderPath(Environment.SpecialFolder.InternetCache);
         }
 
-        
+
+        void PublishManifest()
+        {
+
+            Console.WriteLine("===== {0} =====", "POST publishmanifest");
+            Console.WriteLine("");
+
+            List<string> connotes = new List<string>();
+            connotes.Add("4WD0002186");
+            connotes.Add("4WD0002187");
+            connotes.Add("4WD0002188");
+
+            HttpResponseMessage response = client.PostAsJsonAsync("v2/publishmanifest", connotes).Result;  // Blocking call!
+            if (response.IsSuccessStatusCode)
+            {
+                // Parse the response body. Blocking!
+                var data = response.Content.ReadAsStringAsync().Result;
+
+                if (!string.IsNullOrEmpty(data) && data != "null")
+                {
+                    var lines = JsonConvert.DeserializeObject<Dictionary<string, byte[]>>(data);
+
+                    foreach (var item in lines)
+                    {
+                        var file = GetTempFolder() + "\\" + item.Key + "_" + Guid.NewGuid() + ".pdf";
+
+                        System.IO.File.WriteAllBytes(file, item.Value);
+
+                        System.Diagnostics.Process.Start(file);
+                    }
+                }
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("{0} ({1})", (int)response.StatusCode, response.ReasonPhrase);
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+
+        }
+
+
     }
 }
