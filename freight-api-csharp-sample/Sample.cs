@@ -29,10 +29,14 @@ namespace freight_api_csharp_sample
 
         internal void RunAll()
         {
-            
+            AddressValidation_CorrectBody();
+            AddressValidation_IncorrectSuburb();
+            AddressValidation_IncorrectDataLength();
+
+
             NewOrder();
             NewOrders();
-            
+
             Order();
             PendingOrders();
 
@@ -45,6 +49,8 @@ namespace freight_api_csharp_sample
             CreateAndPrint();
 
             PublishManifest();
+
+
         }
 
         private List<string> PendingOrders()
@@ -655,5 +661,94 @@ namespace freight_api_csharp_sample
         }
 
 
+
+        void AddressValidation_CorrectBody()
+        {
+            Console.WriteLine("===== {0} =====", "POST AddressValidation_CorrectBody");
+            Console.WriteLine("");
+
+            var post = new AddressToValidate
+            {
+                Consignee = "0123456789 0123456789 0123456789 0123456789",
+                Address = new AddressToValidate.AddressObject
+               {
+                   StreetAddress = "1 Some Street",
+                   City = "NSW",
+                   Suburb ="Mascot",
+                   PostCode = "2020",
+                   CountryCode = "Au"
+               }
+            };
+            PostValidationRequest(post);
+        }
+
+        void AddressValidation_IncorrectSuburb()
+        {
+            Console.WriteLine("===== {0} =====", "POST AddressValidation_CorrectBody");
+            Console.WriteLine("");
+
+            var post = new AddressToValidate
+            {
+                Consignee = "0123456789 0123456789 0123456789 0123456789",
+                Address = new AddressToValidate.AddressObject
+                {
+                    StreetAddress = "1 Some Street",
+                    City = "NSW",
+                    Suburb = "MascotX",
+                    PostCode = "2020",
+                    CountryCode = "Au"
+                }
+            };
+            PostValidationRequest(post);
+        }
+        void AddressValidation_IncorrectDataLength()
+        {
+            Console.WriteLine("===== {0} =====", "POST AddressValidation_IncorrectDataLength");
+            Console.WriteLine("");
+
+            var post = new AddressToValidate
+            {
+                Consignee = "0123456789 0123456789 0123456789 0123456789 0123456789 0123456789",
+                Address = new AddressToValidate.AddressObject
+                {
+                    StreetAddress = "1 Some Street",
+                    City = "NSW",
+                    Suburb = "Mascot",
+                    PostCode = "2020",
+                    CountryCode = "Au"
+                }
+            };
+            PostValidationRequest(post);
+        }
+
+        private void PostValidationRequest(AddressToValidate post)
+        {
+            HttpResponseMessage response = client.PostAsJsonAsync("v2/addressvalidation", post).Result;  // Blocking call!
+            if (response.IsSuccessStatusCode)
+            {
+                // Parse the response body. Blocking!
+                var data = response.Content.ReadAsStringAsync().Result;
+
+                if (!string.IsNullOrEmpty(data) && data != "null")
+                {
+                    var obj = JsonConvert.DeserializeObject<AddressValidationResponse>(data);
+
+                    if (obj.Validated)
+                        Console.WriteLine("State/Suburb/Postcode/Country: CORRECT");
+
+                    foreach (var item in obj.Errors)
+                    {
+                        Console.WriteLine(item);
+                    }
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("{0} ({1})", (int)response.StatusCode, response.ReasonPhrase);
+                    Console.ForegroundColor = ConsoleColor.White;
+                }
+            }
+            Console.WriteLine("");
+        }
     }
 }
